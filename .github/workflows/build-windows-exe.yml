@@ -1,0 +1,61 @@
+name: Build Windows GUI EXE
+
+on:
+  workflow_dispatch:
+  push:
+    paths:
+      - "M2_Texture_Binder.py"
+      - "app.ico"
+      - ".github/workflows/build-windows-exe.yml"
+
+permissions:
+  contents: read
+
+jobs:
+  build-windows-exe:
+    runs-on: windows-latest
+
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v6
+
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+          architecture: "x64"
+
+      - name: Install PyInstaller
+        run: |
+          python -m pip install --upgrade pip
+          python -m pip install pyinstaller
+
+      - name: Check source syntax
+        run: python -m py_compile M2_Texture_Binder.py
+
+      - name: Build single-file GUI executable
+        run: >-
+          python -m PyInstaller
+          --noconfirm
+          --clean
+          --onefile
+          --windowed
+          --icon app.ico
+          --add-data "app.ico;."
+          --name M2TextureBinder
+          M2_Texture_Binder.py
+
+      - name: Verify executable exists
+        run: |
+          if (-not (Test-Path "dist/M2TextureBinder.exe")) {
+            throw "EXE build output was not found."
+          }
+          Get-Item "dist/M2TextureBinder.exe" | Select-Object Name, Length
+
+      - name: Upload Windows EXE
+        uses: actions/upload-artifact@v4
+        with:
+          name: M2TextureBinder-Windows-x64
+          path: dist/M2TextureBinder.exe
+          if-no-files-found: error
+          retention-days: 14
